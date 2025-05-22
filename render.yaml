@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: code-summarizer
+    env: python
+    region: oregon  # You can change this if needed
+    buildCommand: ""
+    startCommand: python app.py
+    plan: free
+    envVars:
+      - key: PORT
+        value: 5001

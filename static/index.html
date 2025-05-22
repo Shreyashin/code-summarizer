@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Summarizer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-section {
+            margin-bottom: 30px;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #555;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .summarize-btn {
+            background-color: #4CAF50;
+            color: white;
+            flex: 1;
+        }
+        .summarize-btn:hover {
+            background-color: #45a049;
+        }
+        .counterfactual-btn {
+            background-color: #2196F3;
+            color: white;
+            flex: 1;
+        }
+        .counterfactual-btn:hover {
+            background-color: #0b7dda;
+        }
+        .counterfactual-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .results-section {
+            margin-top: 30px;
+            display: none;
+        }
+        .result-card {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+        }
+        .result-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        .summary {
+            background-color: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .attention-words {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .word-item {
+            background-color: #e3f2fd;
+            padding: 8px 12px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .word {
+            font-weight: bold;
+            color: #1976d2;
+        }
+        .score {
+            font-size: 12px;
+            color: #666;
+        }
+        .code-display {
+            background-color: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            margin-bottom: 15px;
+        }
+        .counterfactuals-section {
+            margin-top: 30px;
+            display: none;
+        }
+        .counterfactual-item {
+            margin-bottom: 30px;
+            border: 2px solid #e0e0e0;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .counterfactual-label {
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 10px;
+            text-transform: capitalize;
+        }
+        .loader {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .loader::after {
+            content: "";
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Code Summarizer & Counterfactual Generator</h1>
+        
+        <div class="input-section">
+            <label for="codeInput">Enter your code snippet:</label>
+            <textarea id="codeInput" placeholder="def your_function():
+    # Your code here
+    pass"></textarea>
+            
+            <div class="button-group">
+                <button class="summarize-btn" onclick="summarizeCode()">Summarize Code</button>
+                <button class="counterfactual-btn" onclick="generateCounterfactuals()" disabled>Generate Counterfactuals</button>
+            </div>
+        </div>
+        
+        <div class="loader"></div>
+        <div class="error"></div>
+        
+        <div class="results-section">
+            <div class="result-card">
+                <div class="result-title">Original Code Summary</div>
+                <div class="code-display" id="originalCode"></div>
+                <div class="summary" id="originalSummary"></div>
+                <div class="result-title">Top Important Words</div>
+                <div class="attention-words" id="originalWords"></div>
+            </div>
+        </div>
+        
+        <div class="counterfactuals-section">
+            <h2>Counterfactual Variations</h2>
+            <div id="counterfactualsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentCode = '';
+        
+        // Mock backend API calls - in a real implementation, these would call your Python backend
+        async function mockSummarizeCode(code) {
+    const response = await fetch('http://localhost:5001/summarize', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code: code })
+    });
+    if (!response.ok) {
+        throw new Error('Failed to summarize code');
+    }
+    return await response.json();
+}
+        
+        async function mockGenerateCounterfactuals(code) {
+    const response = await fetch('http://localhost:5001/counterfactuals', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code: code })
+    });
+    if (!response.ok) {
+        throw new Error('Failed to generate counterfactuals');
+    }
+    return await response.json();
+}
+        
+        function clearResults() {
+            // Clear summary section
+            document.getElementById('originalCode').textContent = '';
+            document.getElementById('originalSummary').textContent = '';
+            document.getElementById('originalWords').innerHTML = '';
+            
+            // Clear counterfactuals section
+            document.getElementById('counterfactualsContainer').innerHTML = '';
+            
+            // Hide both sections
+            document.querySelector('.results-section').style.display = 'none';
+            document.querySelector('.counterfactuals-section').style.display = 'none';
+        }
+        
+        async function summarizeCode() {
+            const code = document.getElementById('codeInput').value.trim();
+            
+            if (!code) {
+                showError('Please enter some code to summarize');
+                return;
+            }
+            
+            currentCode = code;
+            showLoader(true);
+            hideError();
+            
+            // Clear previous results
+            clearResults();
+            
+            try {
+                // In a real implementation, this would call your Python backend
+                const result = await mockSummarizeCode(code);
+                
+                // Display results
+                document.getElementById('originalCode').textContent = code;
+                document.getElementById('originalSummary').textContent = result.summary;
+                
+                // Display top words
+                const wordsContainer = document.getElementById('originalWords');
+                wordsContainer.innerHTML = '';
+                result.topWords.forEach(item => {
+                    const wordDiv = document.createElement('div');
+                    wordDiv.className = 'word-item';
+                    wordDiv.innerHTML = `
+                        <div class="word">${item.word}</div>
+                        <div class="score">${item.score.toFixed(4)}</div>
+                    `;
+                    wordsContainer.appendChild(wordDiv);
+                });
+                
+                // Show results and enable counterfactual button
+                document.querySelector('.results-section').style.display = 'block';
+                document.querySelector('.counterfactual-btn').disabled = false;
+                
+            } catch (error) {
+                showError('Error summarizing code: ' + error.message);
+            } finally {
+                showLoader(false);
+            }
+        }
+        
+        async function generateCounterfactuals() {
+            const code = document.getElementById('codeInput').value.trim();
+            
+            if (!code) {
+                showError('Please enter some code to generate counterfactuals');
+                return;
+            }
+            
+            showLoader(true);
+            hideError();
+            
+            // Clear previous results
+            clearResults();
+            
+            try {
+                // First update the summary with the new code
+                const summaryResult = await mockSummarizeCode(code);
+                
+                // Display updated summary results
+                document.getElementById('originalCode').textContent = code;
+                document.getElementById('originalSummary').textContent = summaryResult.summary;
+                
+                // Display updated top words
+                const wordsContainer = document.getElementById('originalWords');
+                wordsContainer.innerHTML = '';
+                summaryResult.topWords.forEach(item => {
+                    const wordDiv = document.createElement('div');
+                    wordDiv.className = 'word-item';
+                    wordDiv.innerHTML = `
+                        <div class="word">${item.word}</div>
+                        <div class="score">${item.score.toFixed(4)}</div>
+                    `;
+                    wordsContainer.appendChild(wordDiv);
+                });
+                
+                // Show results section
+                document.querySelector('.results-section').style.display = 'block';
+                
+                // Now generate counterfactuals
+                const result = await mockGenerateCounterfactuals(code);
+                
+                // Display counterfactuals
+                const container = document.getElementById('counterfactualsContainer');
+                container.innerHTML = '';
+                
+                result.counterfactuals.forEach(cf => {
+                    const cfDiv = document.createElement('div');
+                    cfDiv.className = 'counterfactual-item';
+                    
+                    const wordsHtml = cf.topWords.map(item => `
+                        <div class="word-item">
+                            <div class="word">${item.word}</div>
+                            <div class="score">${item.score.toFixed(4)}</div>
+                        </div>
+                    `).join('');
+                    
+                    cfDiv.innerHTML = `
+                        <div class="counterfactual-label">${cf.label.replace(/_/g, ' ')}</div>
+                        <div class="code-display">${cf.code}</div>
+                        <div class="summary">${cf.summary}</div>
+                        <div class="result-title">Top Important Words</div>
+                        <div class="attention-words">${wordsHtml}</div>
+                    `;
+                    
+                    container.appendChild(cfDiv);
+                });
+                
+                document.querySelector('.counterfactuals-section').style.display = 'block';
+                
+            } catch (error) {
+                showError('Error: ' + error.message);
+            } finally {
+                showLoader(false);
+            }
+        }
+        
+        function showLoader(show) {
+            document.querySelector('.loader').style.display = show ? 'block' : 'none';
+        }
+        
+        function showError(message) {
+            const errorDiv = document.querySelector('.error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        
+        function hideError() {
+            document.querySelector('.error').style.display = 'none';
+        }
+        
+        // Add sample code on load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('codeInput').value = `def factorial(n):
+    if n == 0:
+        return 1
+    else:
+        return n * factorial(n-1)`;
+        });
+    </script>
+</body>
+</html>
