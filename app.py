@@ -6,12 +6,14 @@ import traceback
 import google.generativeai as genai
 import requests
 from flask import send_from_directory
+import os
+
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend-backend communication
 
 # Configure Gemini API
-genai.configure(api_key="AIzaSyBY_OzDUK8MNdetUPpwVXPciG_ODBotF9s")
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 Gmodel = genai.GenerativeModel(model_name="models/gemini-1.5-flash-latest")
 
 # Hugging Face Spaces API endpoint
